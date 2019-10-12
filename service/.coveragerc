@@ -1,0 +1,10 @@
+[run]
+branch = True
+omit =
+    # This file is tested trough external Flask process.
+    dajare/api/healthcheck.py
+
+[report]
+fail_under=80
+
+
