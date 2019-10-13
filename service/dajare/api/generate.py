@@ -10,13 +10,13 @@ from dajare.model import GenerationModel
 api = Namespace('generate', description='Generation related operations')
 
 generation = api.model('Generation', {
-    'output': fields.Boolean(description='The final dajare')
+    'output': fields.String(description='The final dajare')
 })
 
 GenerateParam = namedtuple('GenerateParam', 'name type required help')
 
 generate_parser = api.parser()
-generate_parser.add_argument('input', type=str, required=True)
+generate_parser.add_argument('input', type=str, location='form')
 
 LATENCY = Histogram('request_latency_seconds', 'Request Latency')
 
@@ -36,4 +36,4 @@ class Generate(Resource):
         # Parses and validates input arguments
         # In case of validation error HTTP 400 will be returned
         data = generate_parser.parse_args()
-        return GenerationModel.predict(data), 200
+        return GenerationModel.generate(data), 200

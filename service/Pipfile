@@ -5,8 +5,8 @@ verify_ssl = true
 
 [dev-packages]
 teamcity-messages = "==1.21"
-pytest = "==4.2.0"
-pytest-cov = "==2.6.1"
+pytest = "==4.6.5"
+pytest-cov = "==2.8.1"
 pylint = "==2.2.2"
 flake8 = "==3.7.4"
 flake8-import-order = "==0.18.0"
@@ -18,18 +18,14 @@ flake8-logging-format = "==0.6.0"
 flake8-string-format = "==0.2.3"
 flake8-colors = "==0.1.6"
 flake8-type-annotations = "==0.1.0"
-jupyter = "==1.0.0"
-matplotlib = "==3.0.2"
 
 [packages]
 Flask = "==1.0.2"
 flask-restplus = "==0.12.1"
 gunicorn = "==19.9.0"
 requests = "==2.21.0"
-numpy = "==1.16.0"
-scikit-learn = "==0.20.2"
-pandas = "==0.24.0"
 prometheus_client = "==0.6.0"
+pykakasi = "==1.2"
 
 [requires]
 python_version = "3.7"

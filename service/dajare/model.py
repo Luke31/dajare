@@ -7,8 +7,8 @@ model to do the prediction.
 """
 import logging
 import pickle
-
-import pandas as pd
+import pykakasi
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -28,15 +28,19 @@ class GenerationModel:
     model to do the prediction.
     """
 
-    pipeline = None
+    converter = None
 
     @classmethod
     def load_model(cls):
         """Load model from pickle. Model is kept on the class level."""
-        if cls.pipeline is None:
+        if cls.converter is None:
             try:
-                with open('model.pkl', 'rb') as f:
-                    cls.pipeline = pickle.load(f)
+                kakasi = pykakasi.kakasi()
+                kakasi.setMode("J", "H")  # Japanese to ascii, default: no conversion
+                cls.converter = kakasi.getConverter()
+
+                # with open('model.pkl', 'rb') as f:
+                #    cls.pipeline = pickle.load(f)
             except FileNotFoundError:
                 # Pickled model file doesn't exist during fast testing
                 # stage. Dummy model will be used in that case.
@@ -55,8 +59,17 @@ class GenerationModel:
         :rtype: Prediction
         """
         cls.load_model()
-        predict_dict = {v for k, v in input_args.items()}
-        input_frame = pd.DataFrame(generate_dict, index=[0])
+        in_kanji = input_args['input']
+        print(f'Input-Kanji: {in_kanji}')
+        in_kana = cls.converter.do(in_kanji)
+        print(f'Input-Kana: {in_kana}')
+        url = f'http://www.google.com/transliterate?langpair=ja-Hira|ja&text={in_kana}'
 
-        return Generation(expected_response['good_loan'],
-                          expected_response['confidence'])
+        resp = requests.get(url=url)
+        data = resp.json()  # Check the JSON Response Content documentation below
+
+        out_kanji = ''.join([possible_kanjis[0] for (kana, possible_kanjis) in data])
+        print(f'Out-Kanji: {out_kanji}')
+
+        return Generation(out_kanji)
+

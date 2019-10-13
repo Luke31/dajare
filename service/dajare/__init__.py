@@ -12,10 +12,10 @@ from .api import api
 
 
 this_dir = os.path.dirname(__file__)
-static_folder = os.path.abspath(os.path.join(this_dir, '..', 'model_info'))
+static_folder = os.path.abspath(os.path.join(this_dir, '..', 'static'))
 
 app = Flask(__name__,
-            static_url_path='/model_info',
+            static_url_path='/static',
             static_folder=static_folder)
 api.init_app(app)
 

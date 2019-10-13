@@ -6,7 +6,6 @@ from flask import url_for
 import pytest  # noqa
 
 from dajare import app
-from dajare.api.healthcheck import expected_response, test_payload
 from dajare.model import Prediction
 
 
@@ -14,27 +13,14 @@ from dajare.model import Prediction
 def ep_url():
     """Fixture for predict endpoint URL."""
     with app.test_request_context():
-        ep = url_for('predict_predict')
+        ep = url_for('generate_generate')
     return ep
 
 
-def test_success_real_model(client, ep_url, real_model):
+def test_success_model(client, ep_url, real_model):
     """Test that the proper response is given if the parameters are correct."""
-    if not real_model:
-        # If we are not running test with the real model we shall use a mocked
-        # version.
-        with patch('dajare.model.PredictionModel.predict',
-                   return_value=Prediction(
-                       expected_response['good_loan'],
-                       expected_response['confidence'])) as mock_method:
-            response = client.post(ep_url, data=test_payload)
-            assert response.status_code == 200
-            # Assert that the predict method was called with test data.
-            assert dict(mock_method.call_args[0][0]) == test_payload
-            assert response.json == expected_response
-    else:
-        response = client.post(ep_url, data=test_payload)
-        assert response.status_code == 200
+    response = client.get(ep_url)
+    assert response.status_code == 200
 
 
 def test_invalid_parameter_type(client, ep_url):
