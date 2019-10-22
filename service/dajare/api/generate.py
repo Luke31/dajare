@@ -35,5 +35,8 @@ class Generate(Resource):
         """
         # Parses and validates input arguments
         # In case of validation error HTTP 400 will be returned
-        data = generate_parser.parse_args()
-        return GenerationModel.generate(data), 200
+        input_args = generate_parser.parse_args()
+        input_text = input_args['input']
+        if input_text and isinstance(input_text, str):
+            return GenerationModel.generate(input_text), 200
+        return {'output': 'Missing input parameter \'input\''}, 400

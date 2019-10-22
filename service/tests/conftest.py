@@ -38,11 +38,9 @@ if DEBUG_STANDALONE:
         return 'http://localhost:5000'
 else:
     @pytest.fixture(scope="session")
-    def flask_server(real_model):
+    def flask_server():
         """Create an instance of Flask server."""
         def run_app(port):
-            if not real_model:
-                app.config['FAKE_MODEL'] = True
             app.run(port=port, use_reloader=False)
 
         server_process = Process(target=run_app, args=(PORT, ))

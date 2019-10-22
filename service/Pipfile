@@ -7,7 +7,7 @@ verify_ssl = true
 teamcity-messages = "==1.21"
 pytest = "==4.6.5"
 pytest-cov = "==2.8.1"
-pylint = "==2.2.2"
+pylint = "==2.4.3"
 flake8 = "==3.7.4"
 flake8-import-order = "==0.18.0"
 flake8-blind-except = "==0.1.1"

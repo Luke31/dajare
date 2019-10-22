@@ -6,7 +6,6 @@ model to do the prediction.
 
 """
 import logging
-import pickle
 import pykakasi
 import requests
 
@@ -49,17 +48,17 @@ class GenerationModel:
                 logger.warning('Warning: model.pkl not loaded.')
 
     @classmethod
-    def generate(cls, input_args):
+    def generate(cls, input_text):
         """Return generation based on the input arguments.
 
-        :param input_args: The input data arguments.
-        :type input_args: dict
+        :param input_text: The input data arguments.
+        :type input_text: str
 
         :return: the Prediction object.
         :rtype: Prediction
         """
         cls.load_model()
-        in_kanji = input_args['input']
+        in_kanji = input_text
         print(f'Input-Kanji: {in_kanji}')
         in_kana = cls.converter.do(in_kanji)
         print(f'Input-Kana: {in_kana}')
@@ -72,4 +71,3 @@ class GenerationModel:
         print(f'Out-Kanji: {out_kanji}')
 
         return Generation(out_kanji)
-
