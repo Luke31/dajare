@@ -20,6 +20,7 @@ def test_success_model(client, ep_url):
     response = client.post(ep_url, data={'input': 'inputtext'})
     assert response.status_code == 200
 
+
 def test_missing_required_parameter(client, ep_url):
     """Test missing parameter.
 

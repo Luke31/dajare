@@ -24,8 +24,8 @@ LABEL image=test
 COPY tests /app/tests
 RUN pipenv sync --dev
 RUN pipenv run pytest \
-    && pipenv run pylint --rcfile setup.cfg dajare tests
-    #&& pipenv run flake8 --teamcity dajare tests
+    && pipenv run pylint --rcfile setup.cfg dajare tests \
+    && pipenv run flake8 --teamcity dajare tests
 
 FROM builder
 MAINTAINER Lukas Schmid <lukas.m.schmid@gmail.com>
