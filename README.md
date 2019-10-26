@@ -26,6 +26,7 @@ See definition: [Wikipedia Dajare](https://en.wikipedia.org/wiki/Dajare)
   What you would expect from an IME. If you put in a common sentences, you will almost always get the 
   same kanjis. Should elminiate same sentences
 - Katakana is not converted to Hiragana
+- Split before requesting Google API, e.g. tomo, dachi instead of tomodachi
 
 # Credits
 - Used [pymlhelloworld](https://github.com/pellmont/pymlhelloworld) by [pellmont](https://github.com/pellmont) as a base for starting project.

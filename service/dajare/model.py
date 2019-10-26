@@ -6,6 +6,7 @@ model to do the prediction.
 
 """
 import logging
+from typing import List
 import pykakasi
 import requests
 
@@ -66,8 +67,47 @@ class GenerationModel:
 
         resp = requests.get(url=url)
         data = resp.json()  # Check the JSON Response Content documentation below
-
-        out_kanji = ''.join([possible_kanjis[0] for (kana, possible_kanjis) in data])
-        print(f'Out-Kanji: {out_kanji}')
-
+        out_kanji = BacktrackSearch(data, input_text).select_solution()
         return Generation(out_kanji)
+
+
+class BacktrackSearch:
+    """Find possible kanjis by backtracking all possibilities
+    """
+    input_text = ''
+    kanas = [[]]
+    solutions = []
+
+    def __init__(self, data: List[object], input_text: str):
+        """Initialize the prediction."""
+        self.kanas = [possible_kanjis for (kana, possible_kanjis) in data]
+        self.input_text = input_text
+        self.solutions = []
+
+    def select_solution(self) -> str:
+        """
+        Select a solution which is different from the provided input string.
+
+        :param possible_kanjis: list of possible kanjis for reading
+        :param input_text: Japanese input text
+        """
+        self.__backtrack(0, '')
+        return '\n'.join(self.solutions)
+
+    def __backtrack(self, kana_idx: int, current_solution):
+        """
+        Backtrace-algorithm to find possible dajare-solutions for provided kanas.
+        Ignores solution which is equivalent to provided input-string
+
+        :param kana_idx: current kanas for which
+        :param current_solution: current possible solution
+        :return: All possible kanji solutions for provided kana-string
+        """
+        if kana_idx == len(self.kanas):
+            if current_solution != self.input_text:
+                self.solutions.append(current_solution)
+            return
+
+        possible_kanjis = self.kanas[kana_idx]
+        for nextkanji in possible_kanjis:
+            self.__backtrack(kana_idx + 1, current_solution + nextkanji)

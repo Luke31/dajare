@@ -38,5 +38,7 @@ class Generate(Resource):
         input_args = generate_parser.parse_args()
         input_text = input_args['input']
         if input_text and isinstance(input_text, str):
-            return GenerationModel.generate(input_text), 200
+            result = GenerationModel.generate(input_text)
+            result.output = result.output.replace('\n', '<br />')
+            return result, 200
         return {'output': 'Missing input parameter \'input\''}, 400
