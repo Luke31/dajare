@@ -1,0 +1,10 @@
+version: '2'
+services:
+  service:
+    volumes:
+      - './service/:/app/'       
+      - './service/static/:/app/static/' 
+    command: bash -c "pipenv sync && pipenv install --dev -e . --skip-lock && pipenv run gunicorn --workers=2 --bind=0.0.0.0:5000 --reload dajare:app"
+  nginx:
+    volumes:
+      - './service/static/:/app/static/'
