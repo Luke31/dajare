@@ -1,4 +1,7 @@
 from metaflow import FlowSpec, step, Parameter, conda, conda_base
+import os
+import sys
+import subprocess
 
 def get_python_version():
     import platform
@@ -29,11 +32,9 @@ class EmotionFlow(FlowSpec):
     @conda(libraries={'pandas' : '0.25.3'})
     @step
     def prepare_lookup(self):
-        import os
-        os.system('pip install tinysegmenter==0.4')
-        import tinysegmenter 
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "kytea==0.1.4"])
         #prepare tokenizer
-        #import Mykytea
+        import Mykytea
         opt = "-model /usr/local/share/kytea/model.bin"
         mk = Mykytea.Mykytea(opt)
         # hiragana, katakana and unionedkanas
@@ -42,9 +43,9 @@ class EmotionFlow(FlowSpec):
         kana = hira.union(kata)
         
         #prepare emotion-map
-        emotion_map = {row['Symbol']: row['Emotion'] for index, row in available_emotions.iterrows()}
-        emotion_map.update({'面':''})
-        emotion_map.items()
+        self.emotion_map = {row['Symbol']: row['Emotion'] for index, row in self.available_emotions.iterrows()}
+        self.emotion_map.update({'面':''})
+        self.emotion_map.items()
 
         #prepare raw-lookup
         self.elookup_raw = {row['Word']: [self.emotion_map[emotion]
@@ -55,14 +56,13 @@ class EmotionFlow(FlowSpec):
         for exp, emotion in self.elookup_raw.items():
             for word in mk.getWS(exp):
                 if word not in kana:
-                    elookup[word] = set(emotion)
+                    self.elookup[word] = set(emotion)
         self.next(self.deliver_model)
 
     @step
     def deliver_model(self):
-        os.system('pip install kytea==0.1.4')
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "kytea==0.1.4"])
         import pickle
-        from StringIO import StringIO
 
         class EmotionPredictor(object):
             def __init__(self, elookup):
@@ -89,6 +89,22 @@ class EmotionFlow(FlowSpec):
         End-step
         """
         print("")
+
+class EmotionPredictor():
+    def __init__(self, elookup):
+        import Mykytea
+        opt = "-model /usr/local/share/kytea/model.bin"
+        self.mk = Mykytea.Mykytea(opt)
+        self.elookup = elookup
+
+        # emotion lookup
+    def emotions(s):
+        emotions = set()
+        for word in self.mk.getWS(s):
+            if word in self.elookup:
+                 emotions.update(self.elookup[word])
+        return emotions
+
 
 if __name__ == '__main__':
     EmotionFlow()
