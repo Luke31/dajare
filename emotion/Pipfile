@@ -5,12 +5,17 @@ verify_ssl = true
 
 [dev-packages]
 
+
 [packages]
+tinysegmenter = "*"
+numpy = "*"
+scipy = "*"
+matplotlib = "*"
+ipython = "*"
 jupyter = "*"
 pandas = "*"
-kytea = "*"
-metaflow = "*"
-numpy = "*"
+kytea = "==0.1.4"
+metaflow = "==2.0.1"
 sklearn = "*"
 
 [requires]

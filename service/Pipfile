@@ -36,6 +36,9 @@ jupyter = "*"
 pandas = "*"
 sympy = "*"
 nose = "*"
+kytea = "==0.1.4"
+metaflow = "==2.0.1"
+sklearn = "*"
 
 [requires]
 python_version = "3.7"

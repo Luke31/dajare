@@ -25,6 +25,18 @@ def pytest_addoption(parser):
         help="if the real model should be used instead of mocked.")
 
 
+@pytest.fixture(scope='session')
+def real_model(request):
+    """Fixture used to pass --real-model param from CLI."""
+    return request.config.option.real_model
+
+
+@pytest.fixture
+def fake_model():
+    """Configure Flake application to use fake model."""
+    app.config['FAKE_MODEL'] = True
+
+
 @pytest.fixture
 def client():
     """Client for testing REST calls."""
@@ -41,6 +53,8 @@ else:
     def flask_server():
         """Create an instance of Flask server."""
         def run_app(port):
+            if not real_model:
+                app.config['FAKE_MODEL'] = True
             app.run(port=port, use_reloader=False)
 
         server_process = Process(target=run_app, args=(PORT, ))

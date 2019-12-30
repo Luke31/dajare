@@ -1,7 +1,8 @@
 from metaflow import FlowSpec, step, Parameter, conda, conda_base
-import os
 import sys
 import subprocess
+from emotionpredictor import EmotionPredictor
+
 
 def get_python_version():
     import platform
@@ -104,6 +105,7 @@ class EmotionFlow(FlowSpec):
 
         self.predictor = EmotionPredictor(self.elookup)
         pickle.dump(self.predictor, open(self.model_name, 'wb'))
+        pickle.dump(self.elookup, open('elookup.pkl', 'wb'))
         self.next(self.end)
 
     @step
@@ -115,24 +117,6 @@ class EmotionFlow(FlowSpec):
         """
         print("Finished")
         print("Run 'jupyter-notebook emotionflow-stats.ipynb' to view stats of resulting model")
-
-class EmotionPredictor():
-    def __init__(self, elookup):
-        self.elookup = elookup
-
-    def emotions(self, s: str, mk) -> list((str, set())):
-        """
-        Predict emotions for a given sentences.
-
-        :param s: sentence of text to analyze e.g. '文句を言ったら怒られた'
-        :param mk: Instance of Mykytea tokenizer e.g. mk = Mykytea.Mykytea(opt)
-        :return set of emotions for each given sentence as a list
-        """
-        emotions = set()
-        for word in mk.getWS(s):
-            if word in self.elookup:
-                 emotions.update(self.elookup[word])
-        return emotions
 
 
 if __name__ == '__main__':
