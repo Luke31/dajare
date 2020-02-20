@@ -18,6 +18,8 @@ class EmotionFlow(FlowSpec):
 
     """
     Model for emotion detection in Japanese text
+    
+    Example from: https://www.kaggle.com/eray1yildiz/using-lstms-with-attention-for-emotion-recognition
     """
     @step
     def start(self):
@@ -50,6 +52,7 @@ class EmotionFlow(FlowSpec):
         self.emotion_map = {row['Symbol']: row['Emotion'] for index, row in self.available_emotions.iterrows()}
         self.emotion_map.update({'面':''})
         self.emotion_map.items()
+        self.labels = self.emotion_map.values()
         self.next(self.prepare_lookup)
 
     @step 
@@ -83,13 +86,58 @@ class EmotionFlow(FlowSpec):
         self.elookup_raw = {row['Word']: [self.emotion_map[emotion]
                          for emotion in list(row['Emotion'])] for index, row in self.ecorp.iterrows()}
 
-        # tokenize each expression and duplicate emotions to both parts. 
+        self.next(self.create_word_index)
+
+    @step
+    def create_word_index(self):
+        # tokenize each expression and duplicate emotions to both parts.
         # do not assign emotions to tokens that only consist of one kana.
         self.elookup = dict()
+        self.max_words = 0  # maximum number of words in a sentence
+        word2id = dict()
+        label2id = dict()
+
+        # Construction of word2id dict
         for exp, emotion in self.elookup_raw.items():
             for word in mk.getWS(exp):
                 if word not in self.kana:
                     self.elookup[word] = set(emotion)
+                # Add words to word2id dict if not exist
+                if word not in word2id:
+                    word2id[word] = len(word2id)
+            # If length of the sentence is greater than max_words, update max_words
+            if len(exp) > max_words:
+                max_words = len(exp)
+
+        # Construction of label2id and id2label dicts
+        self.label2id = {l: i for i, l in enumerate(set(self.labels))}
+        self.id2label = {v: k for k, v in label2id.items()}
+        self.word2id = word2id
+        self.label2id = label2id
+        self.max_words = max_words
+
+        self.next(self.encode_samples)
+
+    @conda(libraries={'keras': '2.3.1'})
+    @step
+    def encode_samples(self):
+        input_sentences, labels = self.elookup.items()
+        # Encode input words and labels
+        X = [[self.word2id[word] for word in sentence] for sentence in
+             input_sentences]
+        Y = [self.label2id[emotion_labels[0]] for emotion_labels in self.labels]
+
+        # Apply Padding to X
+        from keras.preprocessing.sequence import pad_sequences
+        X = pad_sequences(X, self.max_words)
+
+        # Convert Y to numpy array
+        Y = keras.utils.to_categorical(Y, num_classes=len(self.label2id),
+                                       dtype='float32')
+
+        # Print shapes
+        print("Shape of X: {}".format(X.shape))
+        print("Shape of Y: {}".format(Y.shape))
         self.next(self.deliver_model)
 
     @step
