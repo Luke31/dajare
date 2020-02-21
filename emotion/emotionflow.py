@@ -50,10 +50,9 @@ class EmotionFlow(FlowSpec):
         悲 -> 悲しさ or 恐 -> 恐れ（恐縮等の意味で）
         """
         self.emotion_map = {row['Symbol']: row['Emotion'] for index, row in self.available_emotions.iterrows()}
-        self.emotion_map.update({'面':''})
+        self.emotion_map.update({'面': ''})
         self.emotion_map.items()
-        self.labels = self.emotion_map.values()
-        self.next(self.prepare_lookup)
+        self.next(self.prepare_tokens)
 
     @step 
     def prepare_kana_set(self):
@@ -63,16 +62,13 @@ class EmotionFlow(FlowSpec):
         hira = {chr(l) for l in range(12353,12439)}
         kata = {chr(l) for l in range(12449,12539)}
         self.kana = hira.union(kata)
-        self.next(self.prepare_lookup)
+        self.next(self.prepare_tokens)
 
-    @conda(libraries={'pandas' : '0.25.3'})
+    @conda(libraries={'pandas': '0.25.3'})
     @step
-    def prepare_lookup(self, inputs):
+    def prepare_tokens(self, inputs):
         """
-        Prepare tokenized dictionary for emotions lookup.
-
-        One expression may have multiple emotions assigned.
-        For each token of expression assign all expression emotions.
+        Tokenization
         """
         self.merge_artifacts(inputs)
         
@@ -81,51 +77,58 @@ class EmotionFlow(FlowSpec):
         import Mykytea
         opt = "-model /usr/local/share/kytea/model.bin"
         mk = Mykytea.Mykytea(opt)
-        
-        # prepare list of emotions per expression
-        self.elookup_raw = {row['Word']: [self.emotion_map[emotion]
-                         for emotion in list(row['Emotion'])] for index, row in self.ecorp.iterrows()}
+
+        self.input_sentences = [[word for word in mk.getWS(exp)] for exp in self.ecorp['Word'].values.tolist()]
+        self.labels = [self.emotion_map[emotions[:1]] for emotions in self.ecorp['Emotion'].values.tolist()]
 
         self.next(self.create_word_index)
 
     @step
     def create_word_index(self):
-        # tokenize each expression and duplicate emotions to both parts.
-        # do not assign emotions to tokens that only consist of one kana.
-        self.elookup = dict()
-        self.max_words = 0  # maximum number of words in a sentence
+        """
+        Creating Vocabulary (word index)
+        :return:
+        """
+        # Initialize word2id and label2id dictionaries that will be used to encode words and labels
         word2id = dict()
         label2id = dict()
 
+        max_words = 0  # maximum number of words in a sentence
+
         # Construction of word2id dict
-        for exp, emotion in self.elookup_raw.items():
-            for word in mk.getWS(exp):
-                if word not in self.kana:
-                    self.elookup[word] = set(emotion)
+        for sentence in self.input_sentences:
+            for word in sentence:
                 # Add words to word2id dict if not exist
                 if word not in word2id:
                     word2id[word] = len(word2id)
             # If length of the sentence is greater than max_words, update max_words
-            if len(exp) > max_words:
-                max_words = len(exp)
+            if len(sentence) > max_words:
+                max_words = len(sentence)
 
         # Construction of label2id and id2label dicts
-        self.label2id = {l: i for i, l in enumerate(set(self.labels))}
-        self.id2label = {v: k for k, v in label2id.items()}
+        label2id = {l: i for i, l in enumerate(set(self.labels))}
+        id2label = {v: k for k, v in label2id.items()}
+
         self.word2id = word2id
         self.label2id = label2id
         self.max_words = max_words
+        self.id2label = id2label
 
         self.next(self.encode_samples)
 
     @conda(libraries={'keras': '2.3.1'})
     @step
     def encode_samples(self):
-        input_sentences, labels = self.elookup.items()
+        """
+        Encoding samples with corresponing integer values
+        :return:
+        """
+        import keras
+
         # Encode input words and labels
         X = [[self.word2id[word] for word in sentence] for sentence in
-             input_sentences]
-        Y = [self.label2id[emotion_labels[0]] for emotion_labels in self.labels]
+             self.input_sentences]
+        Y = [self.label2id[label] for label in self.labels]
 
         # Apply Padding to X
         from keras.preprocessing.sequence import pad_sequences
@@ -138,22 +141,111 @@ class EmotionFlow(FlowSpec):
         # Print shapes
         print("Shape of X: {}".format(X.shape))
         print("Shape of Y: {}".format(Y.shape))
+        self.X = X
+        self.Y = Y
+        self.next(self.build_lstm)
+
+    @conda(libraries={'keras': '2.3.1'})
+    @step
+    def build_lstm(self):
+        """
+        Build LSTM model with attention
+        :return:
+        """
+        import keras
+
+        embedding_dim = 100  # The dimension of word embeddings
+
+        # Define input tensor
+        sequence_input = keras.Input(shape=(self.max_words,), dtype='int32')
+
+        # Word embedding layer
+        embedded_inputs = keras.layers.Embedding(len(self.word2id) + 1,
+                                                 embedding_dim,
+                                                 input_length=self.max_words)(
+            sequence_input)
+
+        # Apply dropout to prevent overfitting
+        embedded_inputs = keras.layers.Dropout(0.2)(embedded_inputs)
+
+        # Apply Bidirectional LSTM over embedded inputs
+        lstm_outs = keras.layers.wrappers.Bidirectional(
+            keras.layers.LSTM(embedding_dim, return_sequences=True)
+        )(embedded_inputs)
+
+        # Apply dropout to LSTM outputs to prevent overfitting
+        lstm_outs = keras.layers.Dropout(0.2)(lstm_outs)
+
+        # Attention Mechanism - Generate attention vectors
+        input_dim = int(lstm_outs.shape[2])
+        permuted_inputs = keras.layers.Permute((2, 1))(lstm_outs)
+        attention_vector = keras.layers.TimeDistributed(keras.layers.Dense(1))(
+            lstm_outs)
+        attention_vector = keras.layers.Reshape((self.max_words,))(attention_vector)
+        attention_vector = keras.layers.Activation('softmax',
+                                                   name='attention_vec')(
+            attention_vector)
+        attention_output = keras.layers.Dot(axes=1)(
+            [lstm_outs, attention_vector])
+
+        # Last layer: fully connected with softmax activation
+        fc = keras.layers.Dense(embedding_dim, activation='relu')(
+            attention_output)
+        output = keras.layers.Dense(len(self.label2id), activation='softmax')(fc)
+
+        # Finally building model
+        model = keras.Model(inputs=[sequence_input], outputs=output)
+        model.compile(loss="categorical_crossentropy", metrics=["accuracy"],
+                      optimizer='adam')
+
+        # Print model summary
+        model.summary()
+        self.model = model
+
+        self.next(self.training_model)
+
+    @conda(libraries={'keras': '2.3.1'})
+    @step
+    def training_model(self):
+        """
+        Training the model
+        :return:
+        """
+        import keras
+        # Train model 10 iterations
+        self.model.fit(self.X, self.Y, epochs=2, batch_size=64, validation_split=0.1, shuffle=True)
+
+        self.next(self.attention_model)
+
+    @conda(libraries={'keras': '2.3.1'})
+    @step
+    def attention_model(self):
+        """
+        Training the model
+        :return:
+        """
+        import keras
+        model = self.model
+        # Re-create the model to get attention vectors as well as label prediction
+        self.model_with_attentions = keras.Model(inputs=model.input,
+                                            outputs=[model.output,
+                                                     model.get_layer(
+                                                         'attention_vec').output])
+
         self.next(self.deliver_model)
+
 
     @step
     def deliver_model(self):
         """
-        Initialize Japanese EmotionPredictor model and save in flow under 'self.predictor'.
-        User Predcitor as follows: predictor.emotions('文句を言ったら怒られた')
 
-        Additionally saved as local pickle-file according to model_name-param
         """
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "kytea==0.1.4"])
+        #subprocess.check_call([sys.executable, "-m", "pip", "install", "kytea==0.1.4"])
         import pickle
 
-        self.predictor = EmotionPredictor(self.elookup)
-        pickle.dump(self.predictor, open(self.model_name, 'wb'))
-        pickle.dump(self.elookup, open('elookup.pkl', 'wb'))
+        #self.predictor = EmotionPredictor(self.elookup)
+        #pickle.dump(self.predictor, open(self.model_name, 'wb'))
+        #pickle.dump(self.elookup, open('elookup.pkl', 'wb'))
         self.next(self.end)
 
     @step
