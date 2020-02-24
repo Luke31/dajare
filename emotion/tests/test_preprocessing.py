@@ -10,7 +10,6 @@ import pytest
 
 
 def test_tokenizer():
-    """Create an instance of Flask server."""
-    input = '友達と話す'
-    out = preprocessing.tokenize(input)
-    assert out == ['友達', 'と', '話す']
+    inp = '友達と話す'
+    out = preprocessing.tokenize(inp)
+    assert out == ['友達', 'と', '話', 'す']
