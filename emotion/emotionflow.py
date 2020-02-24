@@ -2,6 +2,8 @@ from metaflow import FlowSpec, step, current, Parameter, conda, conda_base
 import sys
 import subprocess
 import os
+from japnlp import preprocessing
+from japnlp.index import Wordindex, Labelsindex
 
 
 def get_python_version():
@@ -68,51 +70,27 @@ class EmotionFlow(FlowSpec):
     @step
     def prepare_tokens(self, inputs):
         """
-        Tokenization
+        Tokenization of input_sentences and target labels
         """
         self.merge_artifacts(inputs)
         
         # prepare Japanese tokenizer
         subprocess.check_call([sys.executable, "-m", "pip", "install", "kytea==0.1.4"])
-        import Mykytea
-        opt = "-model /usr/local/share/kytea/model.bin"
-        mk = Mykytea.Mykytea(opt)
-
-        self.input_sentences = [[word for word in mk.getWS(exp)] for exp in self.ecorp['Word'].values.tolist()]
+        self.input_sentences = preprocessing.tokenize_batch(self.ecorp['Word'].values.tolist())
         self.labels = [self.emotion_map[emotions[:1]] for emotions in self.ecorp['Emotion'].values.tolist()]
 
-        self.next(self.create_word_index)
+        self.next(self.create_word_labels_index)
 
     @step
-    def create_word_index(self):
+    def create_word_labels_index(self):
         """
-        Creating Vocabulary (word index)
+        Creating Vocabulary (word and labels index)
         :return:
         """
-        # Initialize word2id and label2id dictionaries that will be used to encode words and labels
-        word2id = dict()
-        label2id = dict()
 
-        max_words = 0  # maximum number of words in a sentence
-
-        # Construction of word2id dict
-        for sentence in self.input_sentences:
-            for word in sentence:
-                # Add words to word2id dict if not exist
-                if word not in word2id:
-                    word2id[word] = len(word2id)
-            # If length of the sentence is greater than max_words, update max_words
-            if len(sentence) > max_words:
-                max_words = len(sentence)
-
-        # Construction of label2id and id2label dicts
-        label2id = {l: i for i, l in enumerate(set(self.labels))}
-        id2label = {v: k for k, v in label2id.items()}
-
-        self.word2id = word2id
-        self.label2id = label2id
-        self.max_words = max_words
-        self.id2label = id2label
+        # Wordindex
+        self.wordindex = Wordindex(self.input_sentences)
+        self.labelsindex = Labelsindex(self.labels)
 
         self.next(self.encode_samples)
 
@@ -126,16 +104,16 @@ class EmotionFlow(FlowSpec):
         import tensorflow as tf
 
         # Encode input words and labels
-        X = [[self.word2id[word] for word in sentence] for sentence in
+        X = [[self.wordindex.word2id[word] for word in sentence] for sentence in
              self.input_sentences]
-        Y = [self.label2id[label] for label in self.labels]
+        Y = [self.labelsindex.label2id[label] for label in self.labels]
 
         # Apply Padding to X
         from tensorflow.keras.preprocessing.sequence import pad_sequences
-        X = pad_sequences(X, self.max_words)
+        X = pad_sequences(X, self.wordindex.max_words)
 
         # Convert Y to numpy array
-        Y = tf.keras.utils.to_categorical(Y, num_classes=len(self.label2id),
+        Y = tf.keras.utils.to_categorical(Y, num_classes=len(self.labelsindex.label2id),
                                        dtype='float32')
 
         # Print shapes
@@ -157,12 +135,12 @@ class EmotionFlow(FlowSpec):
         embedding_dim = 100  # The dimension of word embeddings
 
         # Define input tensor
-        sequence_input = tf.keras.Input(shape=(self.max_words,), dtype='int32')
+        sequence_input = tf.keras.Input(shape=(self.wordindex.max_words,), dtype='int32')
 
         # Word embedding layer
-        embedded_inputs = tf.keras.layers.Embedding(len(self.word2id) + 1,
+        embedded_inputs = tf.keras.layers.Embedding(len(self.wordindex.word2id) + 1,
                                                  embedding_dim,
-                                                 input_length=self.max_words)(
+                                                 input_length=self.wordindex.max_words)(
             sequence_input)
 
         # Apply dropout to prevent overfitting
@@ -181,7 +159,7 @@ class EmotionFlow(FlowSpec):
         permuted_inputs = tf.keras.layers.Permute((2, 1))(lstm_outs)
         attention_vector = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1))(
             lstm_outs)
-        attention_vector = tf.keras.layers.Reshape((self.max_words,))(attention_vector)
+        attention_vector = tf.keras.layers.Reshape((self.wordindex.max_words,))(attention_vector)
         attention_vector = tf.keras.layers.Activation('softmax',
                                                    name='attention_vec')(
             attention_vector)
@@ -191,7 +169,7 @@ class EmotionFlow(FlowSpec):
         # Last layer: fully connected with softmax activation
         fc = tf.keras.layers.Dense(embedding_dim, activation='relu')(
             attention_output)
-        output = tf.keras.layers.Dense(len(self.label2id), activation='softmax')(fc)
+        output = tf.keras.layers.Dense(len(self.labelsindex.label2id), activation='softmax')(fc)
 
         # Finally building model
         model = tf.keras.Model(inputs=[sequence_input], outputs=output)
