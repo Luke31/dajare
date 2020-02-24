@@ -2,7 +2,7 @@ from metaflow import FlowSpec, step, current, Parameter, conda, conda_base
 import sys
 import subprocess
 import os
-from japnlp import preprocessing
+from japnlp.preprocessing import Tokenizer
 from japnlp.index import Wordindex, Labelsindex
 
 
@@ -75,8 +75,11 @@ class EmotionFlow(FlowSpec):
         self.merge_artifacts(inputs)
         
         # prepare Japanese tokenizer
+        import Mykytea
         subprocess.check_call([sys.executable, "-m", "pip", "install", "kytea==0.1.4"])
-        self.input_sentences = preprocessing.tokenize_batch(self.ecorp['Word'].values.tolist())
+        opt = "-model /usr/local/share/kytea/model.bin"
+        mk = Mykytea.Mykytea(opt)
+        self.input_sentences = Tokenizer(mk).tokenize_batch(self.ecorp['Word'].values.tolist())
         self.labels = [self.emotion_map[emotions[:1]] for emotions in self.ecorp['Emotion'].values.tolist()]
 
         self.next(self.create_word_labels_index)
