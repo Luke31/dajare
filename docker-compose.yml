@@ -11,6 +11,14 @@ services:
     volumes:
       - static_file:/app/static
     command: pipenv run gunicorn --workers=2 --bind=0.0.0.0:5000 dajare:app
+  model:
+    image: tensorflow/serving
+    ports:
+      - "8038:8501"
+    environment:
+      - MODEL_NAME=EmotionFlow
+    volumes:
+      - ./models/EmotionFlow:/models/EmotionFlow
   nginx:
     image: nginx
     restart: always

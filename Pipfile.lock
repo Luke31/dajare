@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "d1698ed561c31930e132853e881120bf52d5d86cf1f741ed0865e90e75e66464"
+            "sha256": "bd33162385e4d7ea4f860fab07f279079798769bd20bf6be61eb0d1f92cf0a16"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -982,5 +982,10 @@
             "version": "==3.0.0"
         }
     },
-    "develop": {}
+    "develop": {
+        "japnlp": {
+            "editable": true,
+            "path": "emotion"
+        }
+    }
 }

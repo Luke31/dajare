@@ -1,7 +1,7 @@
-from metaflow import FlowSpec, step, Parameter, conda, conda_base
+from metaflow import FlowSpec, step, current, Parameter, conda, conda_base
 import sys
 import subprocess
-from emotionpredictor import EmotionPredictor
+import os
 
 
 def get_python_version():
@@ -116,14 +116,14 @@ class EmotionFlow(FlowSpec):
 
         self.next(self.encode_samples)
 
-    @conda(libraries={'keras': '2.3.1'})
+    @conda(libraries={'tensorflow': '2.1.0'})
     @step
     def encode_samples(self):
         """
         Encoding samples with corresponing integer values
         :return:
         """
-        import keras
+        import tensorflow as tf
 
         # Encode input words and labels
         X = [[self.word2id[word] for word in sentence] for sentence in
@@ -131,11 +131,11 @@ class EmotionFlow(FlowSpec):
         Y = [self.label2id[label] for label in self.labels]
 
         # Apply Padding to X
-        from keras.preprocessing.sequence import pad_sequences
+        from tensorflow.keras.preprocessing.sequence import pad_sequences
         X = pad_sequences(X, self.max_words)
 
         # Convert Y to numpy array
-        Y = keras.utils.to_categorical(Y, num_classes=len(self.label2id),
+        Y = tf.keras.utils.to_categorical(Y, num_classes=len(self.label2id),
                                        dtype='float32')
 
         # Print shapes
@@ -145,107 +145,76 @@ class EmotionFlow(FlowSpec):
         self.Y = Y
         self.next(self.build_lstm)
 
-    @conda(libraries={'keras': '2.3.1'})
+    @conda(libraries={'tensorflow': '2.1.0'})
     @step
     def build_lstm(self):
         """
         Build LSTM model with attention
         :return:
         """
-        import keras
+        import tensorflow as tf
 
         embedding_dim = 100  # The dimension of word embeddings
 
         # Define input tensor
-        sequence_input = keras.Input(shape=(self.max_words,), dtype='int32')
+        sequence_input = tf.keras.Input(shape=(self.max_words,), dtype='int32')
 
         # Word embedding layer
-        embedded_inputs = keras.layers.Embedding(len(self.word2id) + 1,
+        embedded_inputs = tf.keras.layers.Embedding(len(self.word2id) + 1,
                                                  embedding_dim,
                                                  input_length=self.max_words)(
             sequence_input)
 
         # Apply dropout to prevent overfitting
-        embedded_inputs = keras.layers.Dropout(0.2)(embedded_inputs)
+        embedded_inputs = tf.keras.layers.Dropout(0.2)(embedded_inputs)
 
         # Apply Bidirectional LSTM over embedded inputs
-        lstm_outs = keras.layers.wrappers.Bidirectional(
-            keras.layers.LSTM(embedding_dim, return_sequences=True)
+        lstm_outs = tf.keras.layers.Bidirectional(
+            tf.keras.layers.LSTM(embedding_dim, return_sequences=True)
         )(embedded_inputs)
 
         # Apply dropout to LSTM outputs to prevent overfitting
-        lstm_outs = keras.layers.Dropout(0.2)(lstm_outs)
+        lstm_outs = tf.keras.layers.Dropout(0.2)(lstm_outs)
 
         # Attention Mechanism - Generate attention vectors
         input_dim = int(lstm_outs.shape[2])
-        permuted_inputs = keras.layers.Permute((2, 1))(lstm_outs)
-        attention_vector = keras.layers.TimeDistributed(keras.layers.Dense(1))(
+        permuted_inputs = tf.keras.layers.Permute((2, 1))(lstm_outs)
+        attention_vector = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1))(
             lstm_outs)
-        attention_vector = keras.layers.Reshape((self.max_words,))(attention_vector)
-        attention_vector = keras.layers.Activation('softmax',
+        attention_vector = tf.keras.layers.Reshape((self.max_words,))(attention_vector)
+        attention_vector = tf.keras.layers.Activation('softmax',
                                                    name='attention_vec')(
             attention_vector)
-        attention_output = keras.layers.Dot(axes=1)(
+        attention_output = tf.keras.layers.Dot(axes=1)(
             [lstm_outs, attention_vector])
 
         # Last layer: fully connected with softmax activation
-        fc = keras.layers.Dense(embedding_dim, activation='relu')(
+        fc = tf.keras.layers.Dense(embedding_dim, activation='relu')(
             attention_output)
-        output = keras.layers.Dense(len(self.label2id), activation='softmax')(fc)
+        output = tf.keras.layers.Dense(len(self.label2id), activation='softmax')(fc)
 
         # Finally building model
-        model = keras.Model(inputs=[sequence_input], outputs=output)
+        model = tf.keras.Model(inputs=[sequence_input], outputs=output)
         model.compile(loss="categorical_crossentropy", metrics=["accuracy"],
                       optimizer='adam')
 
         # Print model summary
         model.summary()
-        self.model = model
 
-        self.next(self.training_model)
-
-    @conda(libraries={'keras': '2.3.1'})
-    @step
-    def training_model(self):
-        """
-        Training the model
-        :return:
-        """
-        import keras
         # Train model 10 iterations
-        self.model.fit(self.X, self.Y, epochs=2, batch_size=64, validation_split=0.1, shuffle=True)
+        model.fit(self.X, self.Y, epochs=2, batch_size=64, validation_split=0.1, shuffle=True)
 
-        self.next(self.attention_model)
-
-    @conda(libraries={'keras': '2.3.1'})
-    @step
-    def attention_model(self):
-        """
-        Training the model
-        :return:
-        """
-        import keras
-        model = self.model
         # Re-create the model to get attention vectors as well as label prediction
-        self.model_with_attentions = keras.Model(inputs=model.input,
+        model_with_attentions = tf.keras.Model(inputs=model.input,
                                             outputs=[model.output,
                                                      model.get_layer(
                                                          'attention_vec').output])
 
-        self.next(self.deliver_model)
+        # Save model in SavedModel format for Tensorflow Serving.
+        export_path = f'../models/{current.flow_name}/{current.run_id}/'
+        os.makedirs(export_path)
 
-
-    @step
-    def deliver_model(self):
-        """
-
-        """
-        #subprocess.check_call([sys.executable, "-m", "pip", "install", "kytea==0.1.4"])
-        import pickle
-
-        #self.predictor = EmotionPredictor(self.elookup)
-        #pickle.dump(self.predictor, open(self.model_name, 'wb'))
-        #pickle.dump(self.elookup, open('elookup.pkl', 'wb'))
+        model.save(export_path, save_format='tf')
         self.next(self.end)
 
     @step
