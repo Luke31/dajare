@@ -14,9 +14,15 @@ def test_emotionpredictor():
     widx = Mock()
     widx.word2id = {'友達': 1, 'が': 0, '食': 2, 'べます': 3}
 
-    mk = Mock()
-    mk.getWS = lambda x: ['友達', 'が', '食', 'べます']
+    lidx = Mock()
+    lidx.label2id = {'嬉しい': 0, '悲しい': 1, '楽しい': 2}
+    lidx.id2label = {1: '悲しい', 2: '楽しい', 0: '嬉しい'}
 
-    ep = EmotionPredictor(widx)
-    assert ep.emotions(input_text, mk) == set()
-    # assert p == '友達賜べます\n友だち食べます\n友だち賜べます'
+    mk = Mock()
+    mk.getWS = lambda x: ['友達', 'が', '食', 'べます', '食', '食', '食', '食', '食']
+
+    ep = EmotionPredictor(widx, lidx)
+    emotions = ep.emotions(input_text, mk)
+    assert '嬉しい' in emotions
+    assert '悲しい' in emotions
+    assert '楽しい' in emotions

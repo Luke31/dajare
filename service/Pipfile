@@ -28,6 +28,7 @@ dajare = {editable = true,path = "."}
 [packages]
 Flask = "==1.0.2"
 flask-restplus = "==0.12.1"
+Werkzeug = "==0.16.1"
 gunicorn = "==19.9.0"
 requests = "==2.21.0"
 prometheus_client = "==0.6.0"

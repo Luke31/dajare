@@ -47,8 +47,13 @@ class GenerationModel:
                 cls.converter = kakasi.getConverter()
                 # get latest model from metaflow
 
-                with open('wordindex.pkl', 'rb') as f:
-                    cls.emotionpredictor = EmotionPredictor(pickle.load(f))
+                with open('wordindex.pkl', 'rb') as wif:
+                    wordsindex = pickle.load(wif)
+
+                with open('labelsindex.pkl', 'rb') as lif:
+                    labelsindex = pickle.load(lif)
+                cls.emotionpredictor = EmotionPredictor(wordsindex, labelsindex)
+
             except FileNotFoundError:
                 # Pickled model file doesn't exist during fast testing
                 # stage. Dummy model will be used in that case.

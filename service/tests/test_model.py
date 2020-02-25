@@ -24,6 +24,10 @@ def test_backtrack_search():
     input_text = '友達食べます'
     widx = Mock()
     widx.word2id = {'友達': 0, 'が': 1, '食': 2, 'べます': 3}
-    BacktrackSearch(data, input_text, EmotionPredictor(widx))\
+    lidx = Mock()
+    lidx.label2id = {'嬉しい': 0, '悲しい': 1, '楽しい': 2}
+    lidx.id2label = {1: '悲しい', 2: '楽しい', 0: '嬉しい'}
+
+    BacktrackSearch(data, input_text, EmotionPredictor(widx, lidx))\
         .select_solution()
     # assert p == '友達賜べます\n友だち食べます\n友だち賜べます'
