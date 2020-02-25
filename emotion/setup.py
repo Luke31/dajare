@@ -3,7 +3,7 @@
 from setuptools import find_packages, setup
 
 setup(
-    name='emotion',
+    name='japnlp',
     version='1.0.0',
     packages=find_packages(),
     url='https://github.com/Luke31/dajare',
