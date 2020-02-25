@@ -196,6 +196,14 @@ class EmotionFlow(FlowSpec):
         os.makedirs(export_path)
 
         model.save(export_path, save_format='tf')
+        self.next(self.exportindex)
+
+    @step
+    def exportindex(self):
+        import pickle
+
+        pickle.dump(self.wordindex, open('wordindex.pkl', 'wb'))
+        pickle.dump(self.labelsindex, open('labelsindex.pkl', 'wb'))
         self.next(self.end)
 
     @step
@@ -205,6 +213,7 @@ class EmotionFlow(FlowSpec):
 
         Run 'jupyter-notebook emotionflow-stats.ipynb' to view stats of resulting model
         """
+
         print("Finished")
         print("Run 'jupyter-notebook emotionflow-stats.ipynb' to view stats of resulting model")
 
