@@ -2,6 +2,7 @@
 """Just some basic tests for prediction model."""
 from dajare.emotionpredictor import EmotionPredictor
 from dajare.model import BacktrackSearch, GenerationModel
+from unittest.mock import Mock
 
 
 def test_model_loading():
@@ -21,7 +22,8 @@ def test_backtrack_search():
     """Test calling model prediction method."""
     data = [['ともだち', ['友達', '友だち']], ['たべます', ['食べます', '賜べます']]]
     input_text = '友達食べます'
-    elookup = {'友達': ['emotion']}
-    BacktrackSearch(data, input_text, EmotionPredictor(elookup))\
+    widx = Mock()
+    widx.word2id = {'友達': 0, 'が': 1, '食': 2, 'べます': 3}
+    BacktrackSearch(data, input_text, EmotionPredictor(widx))\
         .select_solution()
     # assert p == '友達賜べます\n友だち食べます\n友だち賜べます'

@@ -47,7 +47,7 @@ class GenerationModel:
                 cls.converter = kakasi.getConverter()
                 # get latest model from metaflow
 
-                with open('elookup.pkl', 'rb') as f:
+                with open('wordindex.pkl', 'rb') as f:
                     cls.emotionpredictor = EmotionPredictor(pickle.load(f))
             except FileNotFoundError:
                 # Pickled model file doesn't exist during fast testing

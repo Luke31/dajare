@@ -1,5 +1,7 @@
 """EmotionPredictor."""
 # TODO: Use dependency from emotion/predictor/emotionpredictor!
+from japnlp.preprocessing import Tokenizer
+from japnlp.index import Wordindex, Labelsindex
 
 
 class EmotionPredictor:
@@ -7,10 +9,10 @@ class EmotionPredictor:
 
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, elookup):
-        self.elookup = elookup
+    def __init__(self, wordindex):
+        self.wordindex = wordindex
 
-    def emotions(self, s: str, mk) -> list((str, set())):
+    def emotions(self, s: str, mk) -> {str}:
         """
         Predict emotions for a given sentences.
 
@@ -19,7 +21,11 @@ class EmotionPredictor:
         :return set of emotions for each given sentence as a list
         """
         emotions = set()
-        for word in mk.getWS(s):
-            if word in self.elookup:
-                emotions.update(self.elookup[word])
+
+        sentence = Tokenizer(mk).tokenize(s)
+        X = [self.wordindex.word2id[word] for word in sentence if word
+             in self.wordindex.word2id]
+
+        # Call model REST
+
         return emotions

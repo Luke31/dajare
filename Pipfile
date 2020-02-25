@@ -5,8 +5,12 @@ verify_ssl = true
 
 [dev-packages]
 japnlp = {editable = true,path = "./emotion"}
+dajare = {editable = true,path = "./service"}
 
 [packages]
+Flask = "==1.0.2"
+flask-restplus = "==0.12.1"
+Werkzeug = "==0.16.1"
 tinysegmenter = "*"
 numpy = "*"
 scipy = "*"
