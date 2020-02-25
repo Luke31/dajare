@@ -26,6 +26,10 @@ class EmotionPredictor:
         X = [self.wordindex.word2id[word] for word in sentence if word
              in self.wordindex.word2id]
 
+        # Apply Padding to X
+        #from tensorflow.keras.preprocessing.sequence import pad_sequences
+        #X = pad_sequences(X, self.wordindex.max_words)
+
         # Call model REST
 
-        return emotions
+        return X
